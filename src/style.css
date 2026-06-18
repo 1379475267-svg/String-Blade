@@ -132,10 +132,13 @@ h1 {
 .stats span,
 .best-panel,
 .target-panel,
+.progression-panel,
 .meter-grid,
 .panel-header,
 .chord-pad,
 .calibration-pad,
+.segmented-control,
+.chord-chart,
 .primary-action,
 .secondary-action {
   border: 1px solid rgba(255, 255, 255, 0.14);
@@ -215,6 +218,67 @@ h1 {
     0 16px 40px rgba(0, 0, 0, 0.28);
 }
 
+.progression-panel {
+  position: absolute;
+  z-index: 1;
+  left: 50%;
+  bottom: 84px;
+  width: min(360px, 40vw);
+  padding: 12px;
+  border-radius: 8px;
+  transform: translateX(-50%);
+}
+
+.progression-panel > span {
+  display: block;
+  margin-bottom: 8px;
+  color: rgba(237, 242, 244, 0.66);
+  font-size: 11px;
+  font-weight: 900;
+  text-align: center;
+  text-transform: uppercase;
+}
+
+.progression-steps {
+  display: flex;
+  justify-content: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.progression-steps span {
+  min-width: 42px;
+  padding: 6px 8px;
+  border-radius: 5px;
+  color: rgba(237, 242, 244, 0.72);
+  background: rgba(255, 255, 255, 0.06);
+  font-size: 13px;
+  font-weight: 900;
+  text-align: center;
+}
+
+.progression-steps span.is-current {
+  color: #11151b;
+  background: #f2c14e;
+}
+
+.rhythm-meter {
+  height: 5px;
+  margin-top: 10px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.rhythm-meter i {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #4fb3ff, #f2c14e);
+  transition: width 120ms linear;
+}
+
 .target-panel span,
 .target-panel em {
   color: rgba(237, 242, 244, 0.66);
@@ -247,6 +311,44 @@ h1 {
     linear-gradient(180deg, rgba(79, 179, 255, 0.13), transparent 30%),
     linear-gradient(0deg, rgba(242, 193, 78, 0.08), transparent 42%),
     #10151c;
+  overflow-y: auto;
+}
+
+.mode-panel {
+  display: grid;
+  gap: 8px;
+}
+
+.segmented-control {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  padding: 6px;
+  border-radius: 8px;
+}
+
+.segmented-control button,
+#difficultySelect {
+  min-height: 38px;
+  border: 0;
+  border-radius: 6px;
+  color: #edf2f4;
+  background: rgba(255, 255, 255, 0.06);
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.segmented-control button.is-selected {
+  color: #11151b;
+  background: #f2c14e;
+}
+
+#difficultySelect {
+  width: 100%;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  padding: 0 10px;
+  color-scheme: dark;
+  background: rgba(7, 10, 14, 0.68);
 }
 
 .panel-header {
@@ -415,7 +517,7 @@ h1 {
   place-items: center;
   gap: 5px;
   min-width: 0;
-  min-height: 72px;
+  min-height: 58px;
   border: 1px solid rgba(255, 255, 255, 0.12);
   border-radius: 6px;
   color: #edf2f4;
@@ -449,7 +551,7 @@ h1 {
 }
 
 .chord-pad button span {
-  font-size: 24px;
+  font-size: 21px;
   font-weight: 950;
   line-height: 1;
 }
@@ -459,6 +561,53 @@ h1 {
   font-size: 10px;
   font-weight: 800;
   text-transform: uppercase;
+}
+
+.chord-chart {
+  display: grid;
+  place-items: center;
+  min-height: 174px;
+  border-radius: 8px;
+  padding: 8px;
+}
+
+.chord-chart svg {
+  width: 100%;
+  max-width: 220px;
+}
+
+.chord-chart .string,
+.chord-chart .fret {
+  stroke: rgba(237, 242, 244, 0.44);
+  stroke-width: 1.4;
+}
+
+.chord-chart .nut {
+  stroke: #edf2f4;
+  stroke-width: 4;
+}
+
+.chord-chart .finger {
+  fill: #f2c14e;
+}
+
+.chord-chart .finger-text {
+  fill: #11151b;
+  font-size: 11px;
+  font-weight: 900;
+}
+
+.chord-chart .open,
+.chord-chart .muted {
+  fill: rgba(237, 242, 244, 0.72);
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.chord-chart .chart-title {
+  fill: #4fb3ff;
+  font-size: 22px;
+  font-weight: 900;
 }
 
 .chord-pad button:hover {
@@ -638,6 +787,11 @@ h1 {
     bottom: 82px;
     min-width: 128px;
   }
+
+  .progression-panel {
+    bottom: 16px;
+    width: calc(100% - 32px);
+  }
 }
 
 @media (max-width: 560px) {
@@ -700,11 +854,11 @@ h1 {
   }
 
   .chord-pad button {
-    min-height: 82px;
+    min-height: 68px;
   }
 
   .chord-pad button span {
-    font-size: 30px;
+    font-size: 24px;
   }
 
   .calibration-panel {
@@ -728,5 +882,9 @@ h1 {
     grid-template-columns: 64px 1fr;
     place-items: center start;
     padding: 0 14px;
+  }
+
+  .chord-chart-panel {
+    display: none;
   }
 }

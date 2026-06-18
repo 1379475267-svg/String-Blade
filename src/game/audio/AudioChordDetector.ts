@@ -1,4 +1,4 @@
-export type ChordName = 'C' | 'G' | 'Am'
+export type ChordName = 'C' | 'G' | 'Am' | 'Em' | 'D' | 'Dm' | 'E' | 'A' | 'F'
 export type MicState = 'idle' | 'asking' | 'ready' | 'denied'
 
 export type Detection = {
@@ -16,12 +16,18 @@ export type CalibrationStatus = {
   message: string
 }
 
-export const chordOrder: ChordName[] = ['C', 'G', 'Am']
+export const chordOrder: ChordName[] = ['C', 'G', 'Am', 'Em', 'D', 'Dm', 'E', 'A', 'F']
 
 export const chords: Record<ChordName, { notes: number[]; color: number; cssColor: string; damage: number }> = {
   C: { notes: [0, 4, 7], color: 0xf2c14e, cssColor: '#f2c14e', damage: 18 },
   G: { notes: [7, 11, 2], color: 0x4fb3ff, cssColor: '#4fb3ff', damage: 21 },
   Am: { notes: [9, 0, 4], color: 0xef5d60, cssColor: '#ef5d60', damage: 24 },
+  Em: { notes: [4, 7, 11], color: 0x8bd17c, cssColor: '#8bd17c', damage: 20 },
+  D: { notes: [2, 6, 9], color: 0xa88cff, cssColor: '#a88cff', damage: 22 },
+  Dm: { notes: [2, 5, 9], color: 0xff8cc6, cssColor: '#ff8cc6', damage: 23 },
+  E: { notes: [4, 8, 11], color: 0xffa24f, cssColor: '#ffa24f', damage: 21 },
+  A: { notes: [9, 1, 4], color: 0x62d6c8, cssColor: '#62d6c8', damage: 22 },
+  F: { notes: [5, 9, 0], color: 0xffd166, cssColor: '#ffd166', damage: 25 },
 }
 
 export class AudioChordDetector {

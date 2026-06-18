@@ -2,7 +2,12 @@ import Phaser from 'phaser'
 import './style.css'
 import { AudioChordDetector, type ChordName, chordOrder } from './game/audio/AudioChordDetector'
 import { MidiChordInput } from './game/input/MidiChordInput'
+import { guitarChordShapes, type Difficulty } from './game/music/ChordLibrary'
 import { BattleScene, type BattleHudState } from './game/scenes/BattleScene'
+
+const chordButtons = chordOrder
+  .map((chord) => `<button id="pad${chord}" type="button"><span>${chord}</span><small>Chord</small></button>`)
+  .join('')
 
 document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
   <main class="game-shell">
@@ -35,9 +40,29 @@ document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
         <strong id="defense">G</strong>
         <em>parry chord</em>
       </div>
+      <div class="progression-panel" aria-label="chord progression">
+        <span id="levelName">Duel Mode</span>
+        <div id="progressionSteps" class="progression-steps"></div>
+        <div id="rhythmMeter" class="rhythm-meter"><i></i></div>
+      </div>
     </section>
 
     <aside class="control-panel" aria-label="audio controls">
+      <div class="mode-panel">
+        <div class="panel-header compact">
+          <span>Game Mode</span>
+          <strong id="modeLabel">Duel</strong>
+        </div>
+        <div class="segmented-control">
+          <button id="modeDuel" type="button" class="is-selected">Duel</button>
+          <button id="modeProgression" type="button">Progression</button>
+        </div>
+        <select id="difficultySelect" aria-label="difficulty">
+          <option value="easy">Easy</option>
+          <option value="normal">Normal</option>
+          <option value="hard">Hard</option>
+        </select>
+      </div>
       <div class="panel-header">
         <span>Audio Core</span>
         <strong id="micState" data-state="idle">Mic off</strong>
@@ -71,14 +96,19 @@ document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
       </div>
       <div class="blade-panel">
         <div class="panel-header compact">
-          <span>Blade Keys</span>
+          <span>Chord Keys</span>
           <strong>Manual</strong>
         </div>
         <div class="chord-pad" aria-label="manual chord controls">
-          <button id="padC" type="button"><span>C</span><small>Attack</small></button>
-          <button id="padG" type="button"><span>G</span><small>Guard</small></button>
-          <button id="padAm" type="button"><span>Am</span><small>Later</small></button>
+          ${chordButtons}
         </div>
+      </div>
+      <div class="chord-chart-panel">
+        <div class="panel-header compact">
+          <span>Guitar Shape</span>
+          <strong id="chartChord">C</strong>
+        </div>
+        <div id="chordChart" class="chord-chart"></div>
       </div>
     </aside>
 
@@ -130,6 +160,12 @@ const hud: Record<string, HTMLElement> = {
   bestScore: document.querySelector<HTMLElement>('#bestScore')!,
   bestWave: document.querySelector<HTMLElement>('#bestWave')!,
   bestCombo: document.querySelector<HTMLElement>('#bestCombo')!,
+  mode: document.querySelector<HTMLElement>('#modeLabel')!,
+  level: document.querySelector<HTMLElement>('#levelName')!,
+  progression: document.querySelector<HTMLElement>('#progressionSteps')!,
+  rhythm: document.querySelector<HTMLElement>('#rhythmMeter i')!,
+  chartChord: document.querySelector<HTMLElement>('#chartChord')!,
+  chordChart: document.querySelector<HTMLElement>('#chordChart')!,
   target: document.querySelector<HTMLElement>('#target')!,
   defense: document.querySelector<HTMLElement>('#defense')!,
   status: document.querySelector<HTMLElement>('#battleStatus')!,
@@ -139,9 +175,10 @@ const hud: Record<string, HTMLElement> = {
   mic: document.querySelector<HTMLElement>('#micState')!,
   midi: document.querySelector<HTMLElement>('#midiState')!,
   calibration: document.querySelector<HTMLElement>('#calibrationState')!,
-  C: document.querySelector<HTMLElement>('#padC')!,
-  G: document.querySelector<HTMLElement>('#padG')!,
-  Am: document.querySelector<HTMLElement>('#padAm')!,
+}
+
+for (const chord of chordOrder) {
+  hud[chord] = document.querySelector<HTMLElement>(`#pad${chord}`)!
 }
 
 const detector = new AudioChordDetector()
@@ -155,6 +192,52 @@ const writeBestStats = () => {
   hud.bestScore.textContent = String(bestStats.score)
   hud.bestWave.textContent = String(bestStats.wave)
   hud.bestCombo.textContent = `${bestStats.combo}x`
+}
+
+const renderChordChart = (chord: ChordName) => {
+  const shape = guitarChordShapes[chord]
+  const strings = 6
+  const frets = 5
+  const width = 210
+  const height = 160
+  const left = 34
+  const top = 26
+  const gridWidth = 142
+  const gridHeight = 104
+  const stringGap = gridWidth / (strings - 1)
+  const fretGap = gridHeight / frets
+  const dots = shape.frets
+    .map((fret, index) => {
+      const x = left + index * stringGap
+      if (fret === 'x') {
+        return `<text x="${x}" y="17" text-anchor="middle" class="muted">x</text>`
+      }
+      if (fret === 0) {
+        return `<text x="${x}" y="17" text-anchor="middle" class="open">o</text>`
+      }
+      const y = top + (fret - 0.5) * fretGap
+      const finger = shape.fingers[index]
+      return `<g><circle cx="${x}" cy="${y}" r="10" class="finger"/><text x="${x}" y="${y + 4}" text-anchor="middle" class="finger-text">${finger}</text></g>`
+    })
+    .join('')
+  const stringLines = Array.from({ length: strings }, (_, index) => {
+    const x = left + index * stringGap
+    return `<line x1="${x}" y1="${top}" x2="${x}" y2="${top + gridHeight}" class="string"/>`
+  }).join('')
+  const fretLines = Array.from({ length: frets + 1 }, (_, index) => {
+    const y = top + index * fretGap
+    return `<line x1="${left}" y1="${y}" x2="${left + gridWidth}" y2="${y}" class="${index === 0 ? 'nut' : 'fret'}"/>`
+  }).join('')
+
+  hud.chartChord.textContent = chord
+  hud.chordChart.innerHTML = `
+    <svg viewBox="0 0 ${width} ${height}" role="img" aria-label="${chord} guitar chord chart">
+      <text x="${width / 2}" y="148" text-anchor="middle" class="chart-title">${chord}</text>
+      ${stringLines}
+      ${fretLines}
+      ${dots}
+    </svg>
+  `
 }
 
 const writeHud = (state: BattleHudState) => {
@@ -177,8 +260,19 @@ const writeHud = (state: BattleHudState) => {
   hud.score.textContent = String(state.score)
   hud.combo.textContent = `${state.combo}x`
   hud.wave.textContent = String(state.wave)
+  const mode = state.mode ?? 'duel'
+  hud.mode.textContent = mode === 'duel' ? 'Duel' : 'Progression'
+  hud.level.textContent = mode === 'duel' ? 'Duel Mode' : state.levelName || 'Progression'
+  const progression = mode === 'progression' ? state.progression ?? [] : []
+  hud.progression.innerHTML = progression
+    .map((chord, index) => `<span class="${index === state.progressionIndex ? 'is-current' : ''}">${chord}</span>`)
+    .join('')
+  hud.rhythm.style.width =
+    mode === 'progression'
+      ? `${Math.max(0, Math.min(100, (state.rhythmTimeLeft / 2.6) * 100))}%`
+      : '100%'
   hud.target.textContent = state.target
-  hud.defense.textContent = state.defense
+  hud.defense.textContent = mode === 'duel' ? state.defense : '-'
   hud.status.textContent = state.status
   hud.detected.textContent = state.detected ?? '-'
   hud.confidence.textContent = `${Math.round(state.confidence * 100)}%`
@@ -191,12 +285,15 @@ const writeHud = (state: BattleHudState) => {
 
   for (const chord of chordOrder) {
     hud[chord].classList.toggle('is-target', chord === state.target)
-    hud[chord].classList.toggle('is-defense', chord === state.defense)
+    hud[chord].classList.toggle('is-defense', mode === 'duel' && chord === state.defense)
     hud[chord].classList.toggle('is-detected', chord === state.detected)
   }
+
+  renderChordChart(state.target)
 }
 
 writeBestStats()
+renderChordChart('C')
 
 const config: Phaser.Types.Core.GameConfig = {
   type: Phaser.AUTO,
@@ -234,12 +331,26 @@ document.querySelector<HTMLButtonElement>('#micButton')!.addEventListener('click
 document.querySelector<HTMLButtonElement>('#midiButton')!.addEventListener('click', () => {
   void midiInput.start()
 })
-document.querySelector<HTMLButtonElement>('#padC')!.addEventListener('click', () => triggerManualChord('C'))
-document.querySelector<HTMLButtonElement>('#padG')!.addEventListener('click', () => triggerManualChord('G'))
-document.querySelector<HTMLButtonElement>('#padAm')!.addEventListener('click', () => triggerManualChord('Am'))
+for (const chord of chordOrder) {
+  document.querySelector<HTMLButtonElement>(`#pad${chord}`)!.addEventListener('click', () => triggerManualChord(chord))
+}
 document.querySelector<HTMLButtonElement>('#calC')!.addEventListener('click', () => detector.startCalibration('C'))
 document.querySelector<HTMLButtonElement>('#calG')!.addEventListener('click', () => detector.startCalibration('G'))
 document.querySelector<HTMLButtonElement>('#calAm')!.addEventListener('click', () => detector.startCalibration('Am'))
+document.querySelector<HTMLButtonElement>('#modeDuel')!.addEventListener('click', () => {
+  battleScene?.setMode('duel')
+  document.querySelector<HTMLButtonElement>('#modeDuel')!.classList.add('is-selected')
+  document.querySelector<HTMLButtonElement>('#modeProgression')!.classList.remove('is-selected')
+})
+document.querySelector<HTMLButtonElement>('#modeProgression')!.addEventListener('click', () => {
+  battleScene?.setMode('progression')
+  document.querySelector<HTMLButtonElement>('#modeProgression')!.classList.add('is-selected')
+  document.querySelector<HTMLButtonElement>('#modeDuel')!.classList.remove('is-selected')
+})
+document.querySelector<HTMLSelectElement>('#difficultySelect')!.addEventListener('change', (event) => {
+  const difficulty = (event.currentTarget as HTMLSelectElement).value as Difficulty
+  battleScene?.setDifficulty(difficulty)
+})
 
 const onboarding = document.querySelector<HTMLElement>('#onboarding')!
 const dismissOnboarding = () => {

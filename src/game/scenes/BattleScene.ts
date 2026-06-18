@@ -1,11 +1,18 @@
 import Phaser from 'phaser'
 import { type ChordName, chords } from '../audio/AudioChordDetector'
 import { SoundEffects } from '../audio/SoundEffects'
+import { type Difficulty, type ProgressionLevel, getLevelForDifficulty } from '../music/ChordLibrary'
 
 export type BattleHudState = {
   score: number
   combo: number
   wave: number
+  mode: BattleMode
+  difficulty: Difficulty
+  levelName: string
+  progression: ChordName[]
+  progressionIndex: number
+  rhythmTimeLeft: number
   target: ChordName
   defense: ChordName
   status: string
@@ -39,6 +46,8 @@ type BattleSceneConfig = {
   onHudChange: (state: BattleHudState) => void
 }
 
+export type BattleMode = 'duel' | 'progression'
+
 const ATTACK_CHORD: ChordName = 'C'
 const DEFENSE_CHORD: ChordName = 'G'
 const GUARD_WINDOW_SECONDS = 0.85
@@ -66,6 +75,12 @@ export class BattleScene extends Phaser.Scene {
   private score = 0
   private wave = 1
   private expectedChord: ChordName = ATTACK_CHORD
+  private mode: BattleMode = 'duel'
+  private difficulty: Difficulty = 'easy'
+  private level: ProgressionLevel = getLevelForDifficulty('easy')
+  private progressionIndex = 0
+  private rhythmTimer = this.level.beatSeconds
+  private gameOver = false
   private status = 'C attack / G guard'
   private lastAttackAt = 0
   private lastGuardAt = 0
@@ -90,18 +105,28 @@ export class BattleScene extends Phaser.Scene {
 
   update(_time: number, deltaMs: number) {
     const delta = Math.min(0.05, deltaMs / 1000)
+    if (this.gameOver) {
+      this.emitHud()
+      return
+    }
 
-    this.enemyState.attackTimer -= delta
-    if (this.enemyState.attackTimer <= 0) {
-      this.fireEnemyAttack()
-      this.enemyState.attackTimer = Math.max(1.9, 3.4 - this.wave * 0.14)
+    if (this.mode === 'progression') {
+      this.rhythmTimer -= delta
+      if (this.rhythmTimer <= 0) {
+        this.missProgressionChord('Missed chord')
+      }
+    }
+
+    if (this.mode === 'duel') {
+      this.enemyState.attackTimer -= delta
+      if (this.enemyState.attackTimer <= 0) {
+        this.fireEnemyAttack()
+        this.enemyState.attackTimer = Math.max(1.9, 3.4 - this.wave * 0.14)
+      }
     }
 
     if (this.playerHp <= 0) {
-      this.playerHp = 100
-      this.combo = 0
-      this.score = Math.max(0, this.score - 50)
-      this.enemyState = this.makeEnemy(this.wave)
+      this.endGame()
     }
 
     this.updateProjectiles(delta)
@@ -126,6 +151,14 @@ export class BattleScene extends Phaser.Scene {
 
   triggerChord(chord: ChordName, manual: boolean) {
     const now = performance.now()
+    if (this.gameOver) {
+      this.resetRun()
+    }
+
+    if (this.mode === 'progression') {
+      this.triggerProgressionChord(chord, now, manual)
+      return
+    }
 
     if (chord === DEFENSE_CHORD) {
       this.guard(now, manual)
@@ -148,6 +181,17 @@ export class BattleScene extends Phaser.Scene {
     this.lastAttackAt = now
     this.sounds.attack(ATTACK_CHORD)
     this.firePlayerAttack(damage)
+  }
+
+  setMode(mode: BattleMode) {
+    this.mode = mode
+    this.resetRun()
+  }
+
+  setDifficulty(difficulty: Difficulty) {
+    this.difficulty = difficulty
+    this.level = getLevelForDifficulty(difficulty)
+    this.resetRun()
   }
 
   private createWorld() {
@@ -332,6 +376,55 @@ export class BattleScene extends Phaser.Scene {
     const from = new Phaser.Math.Vector2(this.player.x + 82, this.player.y - 124)
     const to = new Phaser.Math.Vector2(this.enemy.x - 54, this.enemy.y - 112)
     this.fireProjectile({ chord: ATTACK_CHORD, from, to, target: 'enemy', damage, duration: 0.34 })
+  }
+
+  private triggerProgressionChord(chord: ChordName, now: number, manual: boolean) {
+    if (now - this.lastAttackAt < (manual ? 180 : 560)) {
+      return
+    }
+    this.lastAttackAt = now
+
+    if (chord !== this.expectedChord) {
+      this.missProgressionChord(`Wrong chord: ${chord}`)
+      return
+    }
+
+    const timingBonus = this.rhythmTimer / this.level.beatSeconds
+    const damage = chords[chord].damage + Math.ceil(this.combo * 1.5 + timingBonus * 8)
+    this.combo += 1
+    this.score += damage + Math.ceil(timingBonus * 12)
+    this.status = `Progression hit: ${chord}`
+    this.sounds.attack(chord)
+    this.fireProgressionAttack(chord, damage)
+    this.advanceProgression()
+  }
+
+  private fireProgressionAttack(chord: ChordName, damage: number) {
+    const from = new Phaser.Math.Vector2(this.player.x + 82, this.player.y - 124)
+    const to = new Phaser.Math.Vector2(this.enemy.x - 54, this.enemy.y - 112)
+    this.fireProjectile({ chord, from, to, target: 'enemy', damage, duration: 0.34 })
+  }
+
+  private advanceProgression() {
+    this.progressionIndex = (this.progressionIndex + 1) % this.level.chords.length
+    if (this.progressionIndex === 0) {
+      this.wave += 1
+      this.score += 50 + this.combo * 5
+    }
+    this.expectedChord = this.level.chords[this.progressionIndex]
+    this.rhythmTimer = this.level.beatSeconds
+    this.updateTargetRing()
+  }
+
+  private missProgressionChord(reason: string) {
+    const damage = this.difficulty === 'easy' ? 8 : this.difficulty === 'normal' ? 12 : 16
+    this.playerHp = Math.max(0, this.playerHp - damage)
+    this.combo = 0
+    this.status = `${reason} -${damage} HP`
+    this.sounds.hit()
+    this.cameraShake(0.007)
+    this.spawnHitBurst(this.player.x, this.player.y - 72, 0xef5d60, 8)
+    this.advanceProgression()
   }
 
   private fireEnemyAttack() {
@@ -556,6 +649,33 @@ export class BattleScene extends Phaser.Scene {
     this.updateTargetRing()
   }
 
+  private resetRun() {
+    this.projectiles.forEach((projectile) => {
+      projectile.sprite.destroy()
+      projectile.trail.destroy()
+    })
+    this.projectiles = []
+    this.playerHp = 100
+    this.enemyState = this.makeEnemy(1)
+    this.combo = 0
+    this.score = 0
+    this.wave = 1
+    this.progressionIndex = 0
+    this.rhythmTimer = this.level.beatSeconds
+    this.gameOver = false
+    this.expectedChord = this.mode === 'progression' ? this.level.chords[0] : ATTACK_CHORD
+    this.status = this.mode === 'progression' ? this.level.name : 'C attack / G guard'
+    this.updateTargetRing()
+  }
+
+  private endGame() {
+    this.playerHp = 0
+    this.combo = 0
+    this.gameOver = true
+    this.status = 'Game over - play a chord to restart'
+    this.cameraShake(0.012)
+  }
+
   private cameraShake(intensity: number) {
     this.cameras.main.shake(120, intensity)
   }
@@ -574,6 +694,12 @@ export class BattleScene extends Phaser.Scene {
       score: this.score,
       combo: this.combo,
       wave: this.wave,
+      mode: this.mode,
+      difficulty: this.difficulty,
+      levelName: this.level.name,
+      progression: this.level.chords,
+      progressionIndex: this.progressionIndex,
+      rhythmTimeLeft: Math.max(0, this.rhythmTimer),
       target: this.expectedChord,
       defense: DEFENSE_CHORD,
       status: this.status,
