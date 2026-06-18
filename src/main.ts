@@ -43,7 +43,12 @@ document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
       <div class="progression-panel" aria-label="chord progression">
         <span id="levelName">Duel Mode</span>
         <div id="progressionSteps" class="progression-steps"></div>
-        <div id="rhythmMeter" class="rhythm-meter"><i></i></div>
+        <div id="rhythmMeter" class="rhythm-meter">
+          <span class="good-zone"></span>
+          <span class="perfect-zone"></span>
+          <i></i>
+        </div>
+        <strong id="rhythmRating" class="rhythm-rating">Ready</strong>
       </div>
     </section>
 
@@ -164,6 +169,8 @@ const hud: Record<string, HTMLElement> = {
   level: document.querySelector<HTMLElement>('#levelName')!,
   progression: document.querySelector<HTMLElement>('#progressionSteps')!,
   rhythm: document.querySelector<HTMLElement>('#rhythmMeter i')!,
+  rhythmMeter: document.querySelector<HTMLElement>('#rhythmMeter')!,
+  rhythmRating: document.querySelector<HTMLElement>('#rhythmRating')!,
   chartChord: document.querySelector<HTMLElement>('#chartChord')!,
   chordChart: document.querySelector<HTMLElement>('#chordChart')!,
   target: document.querySelector<HTMLElement>('#target')!,
@@ -267,10 +274,14 @@ const writeHud = (state: BattleHudState) => {
   hud.progression.innerHTML = progression
     .map((chord, index) => `<span class="${index === state.progressionIndex ? 'is-current' : ''}">${chord}</span>`)
     .join('')
-  hud.rhythm.style.width =
+  const rhythmPercent =
     mode === 'progression'
-      ? `${Math.max(0, Math.min(100, (state.rhythmTimeLeft / 2.6) * 100))}%`
-      : '100%'
+      ? Math.max(0, Math.min(100, (state.rhythmTimeLeft / Math.max(0.1, state.rhythmBeatSeconds || 1)) * 100))
+      : 100
+  hud.rhythm.style.width = `${rhythmPercent}%`
+  hud.rhythmMeter.dataset.rating = state.rhythmRating ?? 'ready'
+  hud.rhythmRating.textContent =
+    mode === 'progression' ? (state.rhythmRating ?? 'ready').toUpperCase() : 'Duel timing'
   hud.target.textContent = state.target
   hud.defense.textContent = mode === 'duel' ? state.defense : '-'
   hud.status.textContent = state.status

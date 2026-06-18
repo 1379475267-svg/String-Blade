@@ -13,6 +13,8 @@ export type BattleHudState = {
   progression: ChordName[]
   progressionIndex: number
   rhythmTimeLeft: number
+  rhythmBeatSeconds: number
+  rhythmRating: RhythmRating
   target: ChordName
   defense: ChordName
   status: string
@@ -47,11 +49,14 @@ type BattleSceneConfig = {
 }
 
 export type BattleMode = 'duel' | 'progression'
+export type RhythmRating = 'ready' | 'early' | 'good' | 'perfect' | 'miss'
 
 const ATTACK_CHORD: ChordName = 'C'
 const DEFENSE_CHORD: ChordName = 'G'
 const GUARD_WINDOW_SECONDS = 0.85
 const PERFECT_WINDOW_SECONDS = 0.34
+const PERFECT_RHYTHM_SECONDS = 0.28
+const GOOD_RHYTHM_SECONDS = 0.68
 
 export class BattleScene extends Phaser.Scene {
   private readonly onHudChange: (state: BattleHudState) => void
@@ -80,6 +85,7 @@ export class BattleScene extends Phaser.Scene {
   private level: ProgressionLevel = getLevelForDifficulty('easy')
   private progressionIndex = 0
   private rhythmTimer = this.level.beatSeconds
+  private rhythmRating: RhythmRating = 'ready'
   private gameOver = false
   private status = 'C attack / G guard'
   private lastAttackAt = 0
@@ -389,14 +395,30 @@ export class BattleScene extends Phaser.Scene {
       return
     }
 
-    const timingBonus = this.rhythmTimer / this.level.beatSeconds
-    const damage = chords[chord].damage + Math.ceil(this.combo * 1.5 + timingBonus * 8)
+    const timing = this.rateRhythmHit()
+    this.rhythmRating = timing.rating
+    const damage = chords[chord].damage + Math.ceil(this.combo * 1.5 + timing.damageBonus)
     this.combo += 1
-    this.score += damage + Math.ceil(timingBonus * 12)
-    this.status = `Progression hit: ${chord}`
+    this.score += damage + timing.scoreBonus
+    if (timing.rating === 'perfect') {
+      this.playerHp = Math.min(100, this.playerHp + 3)
+      this.cameraShake(0.006)
+      this.spawnShield(0xf2c14e, 0.5)
+    }
+    this.status = `${timing.label}: ${chord}`
     this.sounds.attack(chord)
     this.fireProgressionAttack(chord, damage)
     this.advanceProgression()
+  }
+
+  private rateRhythmHit() {
+    if (this.rhythmTimer <= PERFECT_RHYTHM_SECONDS) {
+      return { rating: 'perfect' as const, label: 'Perfect rhythm', damageBonus: 18, scoreBonus: 34 }
+    }
+    if (this.rhythmTimer <= GOOD_RHYTHM_SECONDS) {
+      return { rating: 'good' as const, label: 'Good rhythm', damageBonus: 9, scoreBonus: 16 }
+    }
+    return { rating: 'early' as const, label: 'Early hit', damageBonus: 0, scoreBonus: 4 }
   }
 
   private fireProgressionAttack(chord: ChordName, damage: number) {
@@ -418,6 +440,7 @@ export class BattleScene extends Phaser.Scene {
 
   private missProgressionChord(reason: string) {
     const damage = this.difficulty === 'easy' ? 8 : this.difficulty === 'normal' ? 12 : 16
+    this.rhythmRating = 'miss'
     this.playerHp = Math.max(0, this.playerHp - damage)
     this.combo = 0
     this.status = `${reason} -${damage} HP`
@@ -577,7 +600,9 @@ export class BattleScene extends Phaser.Scene {
 
     this.enemyState.hp = Math.max(0, this.enemyState.hp - projectile.damage)
     this.score += projectile.damage
-    this.status = projectile.chord === DEFENSE_CHORD ? 'Returned attack hit' : 'Attack hit'
+    if (this.mode !== 'progression') {
+      this.status = projectile.chord === DEFENSE_CHORD ? 'Returned attack hit' : 'Attack hit'
+    }
     this.sounds.playerImpact(projectile.chord)
     this.flashEnemy(projectile.chord)
     if (this.enemyState.hp <= 0) {
@@ -662,6 +687,7 @@ export class BattleScene extends Phaser.Scene {
     this.wave = 1
     this.progressionIndex = 0
     this.rhythmTimer = this.level.beatSeconds
+    this.rhythmRating = 'ready'
     this.gameOver = false
     this.expectedChord = this.mode === 'progression' ? this.level.chords[0] : ATTACK_CHORD
     this.status = this.mode === 'progression' ? this.level.name : 'C attack / G guard'
@@ -700,6 +726,8 @@ export class BattleScene extends Phaser.Scene {
       progression: this.level.chords,
       progressionIndex: this.progressionIndex,
       rhythmTimeLeft: Math.max(0, this.rhythmTimer),
+      rhythmBeatSeconds: this.level.beatSeconds,
+      rhythmRating: this.rhythmRating,
       target: this.expectedChord,
       defense: DEFENSE_CHORD,
       status: this.status,

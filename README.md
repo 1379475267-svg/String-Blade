@@ -18,6 +18,8 @@ String Blade has two game modes:
 - Duel: `C` attacks, `G` guards, and perfect guard timing reflects enemy shots.
 - Progression: follow a chord progression before the timer expires. Correct
   chords attack the enemy; wrong or missed chords damage the player.
+- Rhythm timing in Progression mode grades hits as Early, Good, or Perfect.
+  Better timing adds damage and score; Perfect timing also restores a little HP.
 
 - `C` chord: launch an energy projectile attack.
 - `G` chord: guard against incoming enemy projectiles.
@@ -49,6 +51,7 @@ String Blade has two game modes:
 - Expanded chord pool: C, G, Am, Em, D, Dm, E, A, and F
 - Structured chord progression levels such as C-G-Am-F and G-D-Em-C
 - Built-in SVG guitar chord diagrams for open chord shapes
+- Visual rhythm meter with Good and Perfect timing windows
 - Multi-frame voting to reduce accidental triggers
 - Per-chord microphone calibration profiles
 - Autocorrelation pitch tracking to stabilize pitch-class scoring
@@ -104,6 +107,8 @@ String Blade 有两个游戏模式：
 
 - Duel：`C` 攻击，`G` 防御，完美防御可以弹反敌人的攻击。
 - Progression：按照给定和弦走向在倒计时结束前演奏。弹对会攻击敌人，弹错或漏弹会受到伤害。
+- Progression 模式会根据节奏判定 Early、Good、Perfect。时机越准，伤害和分数越高；
+  Perfect 还会少量回血。
 
 - `C` 和弦：发射自己的能量弹攻击敌人。
 - `G` 和弦：防御敌人发来的能量弹。
@@ -135,6 +140,7 @@ String Blade 有两个游戏模式：
 - 扩展和弦池：C、G、Am、Em、D、Dm、E、A、F
 - 内置规范和弦走向关卡，例如 C-G-Am-F 和 G-D-Em-C
 - 内置 SVG 吉他开放和弦指法图
+- 可视化节奏条，显示 Good 和 Perfect 判定窗口
 - 多帧投票，减少误触发
 - 每个和弦的麦克风校准配置
 - 自相关音高追踪，稳定音级评分
