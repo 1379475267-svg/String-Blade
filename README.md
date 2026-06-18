@@ -1,17 +1,23 @@
 # String Blade
 
 String Blade is a browser rhythm combat prototype built with Vite, TypeScript,
-Canvas, and the Web Audio API. Play C, G, and Am chords into the microphone to
-trigger sword attacks, build combo, and defeat wave-based enemies.
+Phaser, and the Web Audio API. Play attack and guard chords into the microphone
+to trade projectiles, parry enemy shots, build combo, and defeat wave-based
+enemies.
 
 ## Features
 
 - Vite + TypeScript project setup
-- Full-screen Canvas stick-fighter battle scene
+- Full-screen Phaser stick-fighter battle scene
 - Microphone permission flow through `getUserMedia`
+- Web MIDI API input for MIDI keyboards and digital pianos
+- Synthesized Web Audio sound effects for attacks, guards, parries, hits, and wave clears
 - Real-time waveform and spectrum visualization
 - Lightweight C, G, and Am chord detection from FFT pitch-class energy
-- Chord-driven attack animation with target chord rotation
+- C chord projectile attacks
+- G chord guard and perfect parry timing
+- Enemy projectile attacks with reduced damage on guard
+- Perfect parries reflect enemy attacks without taking damage
 - Enemy health, player health, combo, score, and wave progression
 - Manual chord buttons for testing without microphone input
 
@@ -22,7 +28,12 @@ npm install
 npm run dev
 ```
 
-Open the local Vite URL, press `Start Mic`, and allow microphone access.
+Open the local Vite URL, press `Start Mic`, and allow microphone access. Use
+`C` to attack and `G` to guard. Guard shortly before an enemy projectile lands to
+reduce damage; guard at the last moment to reflect it back without taking damage.
+
+You can also press `Start MIDI` in a browser that supports Web MIDI. With a MIDI
+keyboard connected, play C major to attack and G major to guard/parry.
 
 ## Build
 
