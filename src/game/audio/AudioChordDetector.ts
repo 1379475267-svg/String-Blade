@@ -3,10 +3,17 @@ export type MicState = 'idle' | 'asking' | 'ready' | 'denied'
 
 export type Detection = {
   chord: ChordName | null
+  rawChord: ChordName | null
   confidence: number
   volume: number
   spectrum: Uint8Array<ArrayBufferLike>
   waveform: Uint8Array<ArrayBufferLike>
+}
+
+export type CalibrationStatus = {
+  activeChord: ChordName | null
+  progress: number
+  message: string
 }
 
 export const chordOrder: ChordName[] = ['C', 'G', 'Am']
@@ -23,9 +30,17 @@ export class AudioChordDetector {
   private frequencyData = new Uint8Array(1024)
   private timeData = new Uint8Array(1024)
   private stream: MediaStream | null = null
+  private readonly voteHistory: Array<{ chord: ChordName | null; confidence: number }> = []
+  private readonly calibrationProfiles = new Map<ChordName, number[]>()
+  private calibration: { chord: ChordName; samples: number[][]; targetSamples: number } | null = null
 
   state: MicState = 'idle'
   message = 'Mic off'
+  calibrationStatus: CalibrationStatus = {
+    activeChord: null,
+    progress: 0,
+    message: 'Calibration off',
+  }
 
   async start() {
     this.state = 'asking'
@@ -85,10 +100,18 @@ export class AudioChordDetector {
       pitchEnergy[pitchClass] += energy * energy
     }
 
+    const trackedPitch = this.detectPitchClass()
+    if (trackedPitch !== null) {
+      pitchEnergy[trackedPitch] += pitchEnergy.reduce((sum, value) => sum + value, 0) * 0.12
+    }
+
     const totalEnergy = pitchEnergy.reduce((sum, value) => sum + value, 0)
     if (totalEnergy <= 0) {
       return { ...this.emptyDetection(), volume }
     }
+
+    const normalizedEnergy = pitchEnergy.map((value) => value / totalEnergy)
+    this.captureCalibrationFrame(normalizedEnergy)
 
     let bestChord: ChordName | null = null
     let bestScore = 0
@@ -101,15 +124,21 @@ export class AudioChordDetector {
         const upper = (note + 1) % 12
         return sum + pitchEnergy[lower] * 0.18 + pitchEnergy[upper] * 0.18
       }, 0)
-      const score = (chordEnergy - nearbyPenalty) / totalEnergy
+      const templateScore = (chordEnergy - nearbyPenalty) / totalEnergy
+      const calibrationScore = this.scoreCalibration(chord, normalizedEnergy)
+      const score = calibrationScore === null ? templateScore : templateScore * 0.58 + calibrationScore * 0.42
       if (score > bestScore) {
         bestScore = score
         bestChord = chord
       }
     }
 
+    const rawChord = bestScore > 0.34 ? bestChord : null
+    const votedChord = this.vote(rawChord, bestScore)
+
     return {
-      chord: bestScore > 0.34 ? bestChord : null,
+      chord: votedChord,
+      rawChord,
       confidence: Math.max(0, Math.min(1, bestScore)),
       volume,
       spectrum: this.frequencyData,
@@ -117,14 +146,151 @@ export class AudioChordDetector {
     }
   }
 
+  startCalibration(chord: ChordName) {
+    this.calibration = { chord, samples: [], targetSamples: 36 }
+    this.calibrationStatus = {
+      activeChord: chord,
+      progress: 0,
+      message: `Play ${chord}`,
+    }
+  }
+
   private emptyDetection(): Detection {
     return {
       chord: null,
+      rawChord: null,
       confidence: 0,
       volume: 0,
       spectrum: this.frequencyData,
       waveform: this.timeData,
     }
+  }
+
+  private vote(chord: ChordName | null, confidence: number) {
+    this.voteHistory.push({ chord, confidence })
+    if (this.voteHistory.length > 8) {
+      this.voteHistory.shift()
+    }
+
+    const scores = new Map<ChordName, number>()
+    for (const entry of this.voteHistory) {
+      if (!entry.chord) {
+        continue
+      }
+      scores.set(entry.chord, (scores.get(entry.chord) ?? 0) + entry.confidence)
+    }
+
+    let bestChord: ChordName | null = null
+    let bestScore = 0
+    for (const [candidate, score] of scores) {
+      if (score > bestScore) {
+        bestScore = score
+        bestChord = candidate
+      }
+    }
+
+    const sameRecent = this.voteHistory.filter((entry) => entry.chord === bestChord).length
+    return bestChord && sameRecent >= 3 && bestScore >= 1.18 ? bestChord : null
+  }
+
+  private captureCalibrationFrame(normalizedEnergy: number[]) {
+    if (!this.calibration) {
+      return
+    }
+
+    this.calibration.samples.push([...normalizedEnergy])
+    const progress = this.calibration.samples.length / this.calibration.targetSamples
+    this.calibrationStatus = {
+      activeChord: this.calibration.chord,
+      progress: Math.min(1, progress),
+      message: `Calibrating ${this.calibration.chord} ${Math.round(Math.min(1, progress) * 100)}%`,
+    }
+
+    if (this.calibration.samples.length < this.calibration.targetSamples) {
+      return
+    }
+
+    const profile = new Array<number>(12).fill(0)
+    for (const sample of this.calibration.samples) {
+      for (let i = 0; i < profile.length; i += 1) {
+        profile[i] += sample[i]
+      }
+    }
+    for (let i = 0; i < profile.length; i += 1) {
+      profile[i] /= this.calibration.samples.length
+    }
+
+    this.calibrationProfiles.set(this.calibration.chord, profile)
+    const completedChord = this.calibration.chord
+    this.calibration = null
+    this.calibrationStatus = {
+      activeChord: null,
+      progress: 1,
+      message: `${completedChord} calibrated`,
+    }
+  }
+
+  private scoreCalibration(chord: ChordName, normalizedEnergy: number[]) {
+    const profile = this.calibrationProfiles.get(chord)
+    if (!profile) {
+      return null
+    }
+
+    let dot = 0
+    let aMagnitude = 0
+    let bMagnitude = 0
+    for (let i = 0; i < profile.length; i += 1) {
+      dot += normalizedEnergy[i] * profile[i]
+      aMagnitude += normalizedEnergy[i] * normalizedEnergy[i]
+      bMagnitude += profile[i] * profile[i]
+    }
+
+    if (aMagnitude <= 0 || bMagnitude <= 0) {
+      return 0
+    }
+
+    return dot / Math.sqrt(aMagnitude * bMagnitude)
+  }
+
+  private detectPitchClass() {
+    if (!this.context) {
+      return null
+    }
+
+    const samples = new Float32Array(this.timeData.length)
+    for (let i = 0; i < this.timeData.length; i += 1) {
+      samples[i] = (this.timeData[i] - 128) / 128
+    }
+
+    const sampleRate = this.context.sampleRate
+    const minLag = Math.floor(sampleRate / 1000)
+    const maxLag = Math.floor(sampleRate / 75)
+    let bestLag = -1
+    let bestCorrelation = 0
+
+    for (let lag = minLag; lag <= maxLag; lag += 1) {
+      let correlation = 0
+      for (let i = 0; i < samples.length - lag; i += 1) {
+        correlation += samples[i] * samples[i + lag]
+      }
+      correlation /= samples.length - lag
+      if (correlation > bestCorrelation) {
+        bestCorrelation = correlation
+        bestLag = lag
+      }
+    }
+
+    if (bestLag <= 0 || bestCorrelation < 0.012) {
+      return null
+    }
+
+    const frequency = sampleRate / bestLag
+    if (frequency < 75 || frequency > 1000) {
+      return null
+    }
+
+    const midi = Math.round(69 + 12 * Math.log2(frequency / 440))
+    return ((midi % 12) + 12) % 12
   }
 
   private getVolume() {

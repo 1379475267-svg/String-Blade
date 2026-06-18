@@ -47,10 +47,22 @@ document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
       </button>
       <div class="meter-grid">
         <span>MIDI</span><strong id="midiState" data-state="idle">MIDI off</strong>
+        <span>Cal</span><strong id="calibrationState">Calibration off</strong>
         <span>State</span><strong id="battleStatus">C attack / G guard</strong>
         <span>Chord</span><strong id="detected">-</strong>
         <span>Lock</span><strong id="confidence">0%</strong>
         <span>Input</span><strong id="volume">0%</strong>
+      </div>
+      <div class="calibration-panel">
+        <div class="panel-header compact">
+          <span>Mic Tuning</span>
+          <strong>Hold chord</strong>
+        </div>
+        <div class="calibration-pad" aria-label="microphone calibration controls">
+          <button id="calC" type="button">Cal C</button>
+          <button id="calG" type="button">Cal G</button>
+          <button id="calAm" type="button">Cal Am</button>
+        </div>
       </div>
       <div class="blade-panel">
         <div class="panel-header compact">
@@ -79,6 +91,7 @@ const hud: Record<string, HTMLElement> = {
   volume: document.querySelector<HTMLElement>('#volume')!,
   mic: document.querySelector<HTMLElement>('#micState')!,
   midi: document.querySelector<HTMLElement>('#midiState')!,
+  calibration: document.querySelector<HTMLElement>('#calibrationState')!,
   C: document.querySelector<HTMLElement>('#padC')!,
   G: document.querySelector<HTMLElement>('#padG')!,
   Am: document.querySelector<HTMLElement>('#padAm')!,
@@ -104,6 +117,7 @@ const writeHud = (state: BattleHudState) => {
   hud.mic.dataset.state = detector.state
   hud.midi.textContent = midiInput.message
   hud.midi.dataset.state = midiInput.state
+  hud.calibration.textContent = detector.calibrationStatus.message
 
   for (const chord of chordOrder) {
     hud[chord].classList.toggle('is-target', chord === state.target)
@@ -151,6 +165,9 @@ document.querySelector<HTMLButtonElement>('#midiButton')!.addEventListener('clic
 document.querySelector<HTMLButtonElement>('#padC')!.addEventListener('click', () => triggerManualChord('C'))
 document.querySelector<HTMLButtonElement>('#padG')!.addEventListener('click', () => triggerManualChord('G'))
 document.querySelector<HTMLButtonElement>('#padAm')!.addEventListener('click', () => triggerManualChord('Am'))
+document.querySelector<HTMLButtonElement>('#calC')!.addEventListener('click', () => detector.startCalibration('C'))
+document.querySelector<HTMLButtonElement>('#calG')!.addEventListener('click', () => detector.startCalibration('G'))
+document.querySelector<HTMLButtonElement>('#calAm')!.addEventListener('click', () => detector.startCalibration('Am'))
 
 const syncAudioToScene = () => {
   const detection = detector.read()

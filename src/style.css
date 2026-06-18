@@ -134,6 +134,7 @@ h1 {
 .meter-grid,
 .panel-header,
 .chord-pad,
+.calibration-pad,
 .primary-action,
 .secondary-action {
   border: 1px solid rgba(255, 255, 255, 0.14);
@@ -355,16 +356,25 @@ h1 {
   overflow-wrap: anywhere;
 }
 
-.blade-panel {
+.blade-panel,
+.calibration-panel {
   padding-top: 2px;
 }
 
-.chord-pad {
+.chord-pad,
+.calibration-pad {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 8px;
   padding: 8px;
   border-radius: 8px;
+}
+
+.chord-pad {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.calibration-pad {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
 .chord-pad button {
@@ -386,6 +396,23 @@ h1 {
     color 140ms ease,
     transform 140ms ease,
     box-shadow 140ms ease;
+}
+
+.calibration-pad button {
+  min-width: 0;
+  min-height: 42px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 6px;
+  color: #edf2f4;
+  background: rgba(255, 255, 255, 0.055);
+  font-size: 12px;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.calibration-pad button:hover {
+  border-color: rgba(242, 193, 78, 0.42);
+  background: rgba(242, 193, 78, 0.12);
 }
 
 .chord-pad button span {
