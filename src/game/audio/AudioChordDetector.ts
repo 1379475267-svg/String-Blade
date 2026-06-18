@@ -82,6 +82,7 @@ export class AudioChordDetector {
       return this.emptyDetection()
     }
 
+    // The detector turns each audio frame into pitch-class energy, then stabilizes it with calibration and voting.
     this.analyser.getByteFrequencyData(this.frequencyData)
     this.analyser.getByteTimeDomainData(this.timeData)
 
@@ -153,6 +154,7 @@ export class AudioChordDetector {
   }
 
   startCalibration(chord: ChordName) {
+    // Calibration stores the player's current tone for this chord and blends it with the generic chord template.
     this.calibration = { chord, samples: [], targetSamples: 36 }
     this.calibrationStatus = {
       activeChord: chord,
@@ -274,6 +276,7 @@ export class AudioChordDetector {
     let bestLag = -1
     let bestCorrelation = 0
 
+    // Autocorrelation gives the FFT template a light pitch anchor when a single guitar note rings out strongly.
     for (let lag = minLag; lag <= maxLag; lag += 1) {
       let correlation = 0
       for (let i = 0; i < samples.length - lag; i += 1) {

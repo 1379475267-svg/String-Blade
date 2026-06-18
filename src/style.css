@@ -229,6 +229,24 @@ h1 {
   transform: translateX(-50%);
 }
 
+.pause-overlay {
+  position: absolute;
+  z-index: 2;
+  inset: 0;
+  display: none;
+  place-items: center;
+  color: rgba(237, 242, 244, 0.92);
+  background: rgba(4, 7, 10, 0.42);
+  font-size: 42px;
+  font-weight: 950;
+  text-transform: uppercase;
+  pointer-events: none;
+}
+
+.game-shell[data-paused="true"] .pause-overlay {
+  display: grid;
+}
+
 .progression-panel > span {
   display: block;
   margin-bottom: 8px;
@@ -397,6 +415,46 @@ h1 {
 .segmented-control button.is-selected {
   color: #11151b;
   background: #f2c14e;
+}
+
+.run-controls {
+  display: grid;
+  grid-template-columns: 1fr 1fr auto;
+  gap: 8px;
+  align-items: center;
+}
+
+.run-controls button {
+  min-height: 38px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 6px;
+  color: #edf2f4;
+  background: rgba(255, 255, 255, 0.065);
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.run-controls button:hover {
+  border-color: rgba(79, 179, 255, 0.38);
+  background: rgba(79, 179, 255, 0.12);
+}
+
+.run-controls button.is-paused {
+  color: #11151b;
+  background: #f2c14e;
+}
+
+.run-controls strong {
+  min-width: 58px;
+  color: #58d68d;
+  font-size: 12px;
+  font-weight: 900;
+  text-align: right;
+  text-transform: uppercase;
+}
+
+.run-controls strong[data-state="paused"] {
+  color: #f2c14e;
 }
 
 #difficultySelect {

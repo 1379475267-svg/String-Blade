@@ -23,6 +23,7 @@ export type BattleHudState = {
   volume: number
   playerHp: number
   enemyHp: number
+  paused: boolean
 }
 
 type EnemyState = {
@@ -58,6 +59,15 @@ const PERFECT_WINDOW_SECONDS = 0.34
 const PERFECT_RHYTHM_SECONDS = 0.28
 const GOOD_RHYTHM_SECONDS = 0.68
 
+const DUEL_SKILL_COOLDOWNS: Partial<Record<ChordName, { manual: number; audio: number }>> = {
+  C: { manual: 260, audio: 760 },
+  G: { manual: 220, audio: 620 },
+  Am: { manual: 1500, audio: 1900 },
+  Em: { manual: 1200, audio: 1600 },
+  F: { manual: 1900, audio: 2400 },
+  Dm: { manual: 2100, audio: 2600 },
+}
+
 export class BattleScene extends Phaser.Scene {
   private readonly onHudChange: (state: BattleHudState) => void
   private readonly sounds = new SoundEffects()
@@ -87,9 +97,12 @@ export class BattleScene extends Phaser.Scene {
   private rhythmTimer = this.level.beatSeconds
   private rhythmRating: RhythmRating = 'ready'
   private gameOver = false
+  private paused = false
   private status = 'C attack / G guard'
   private lastAttackAt = 0
-  private lastGuardAt = 0
+  private readonly skillCooldowns = new Map<ChordName, number>()
+  private dodgeUntil = 0
+  private shieldUntil = 0
 
   constructor(config: BattleSceneConfig) {
     super('BattleScene')
@@ -112,6 +125,12 @@ export class BattleScene extends Phaser.Scene {
   update(_time: number, deltaMs: number) {
     const delta = Math.min(0.05, deltaMs / 1000)
     if (this.gameOver) {
+      this.emitHud()
+      return
+    }
+    if (this.paused) {
+      this.drawHealthBars()
+      this.drawAudioRibbon()
       this.emitHud()
       return
     }
@@ -160,33 +179,18 @@ export class BattleScene extends Phaser.Scene {
     if (this.gameOver) {
       this.resetRun()
     }
+    if (this.paused) {
+      this.status = 'Paused'
+      this.emitHud()
+      return
+    }
 
     if (this.mode === 'progression') {
       this.triggerProgressionChord(chord, now, manual)
       return
     }
 
-    if (chord === DEFENSE_CHORD) {
-      this.guard(now, manual)
-      return
-    }
-
-    if (chord !== ATTACK_CHORD) {
-      this.status = `${chord} has no blade action yet`
-      return
-    }
-
-    if (now - this.lastAttackAt < (manual ? 260 : 760)) {
-      return
-    }
-
-    const damage = chords[ATTACK_CHORD].damage + this.combo * 2
-    this.combo += 1
-    this.score += 8
-    this.status = 'Attack launched'
-    this.lastAttackAt = now
-    this.sounds.attack(ATTACK_CHORD)
-    this.firePlayerAttack(damage)
+    this.triggerDuelSkill(chord, now, manual)
   }
 
   setMode(mode: BattleMode) {
@@ -198,6 +202,20 @@ export class BattleScene extends Phaser.Scene {
     this.difficulty = difficulty
     this.level = getLevelForDifficulty(difficulty)
     this.resetRun()
+  }
+
+  togglePaused() {
+    if (this.gameOver) {
+      return
+    }
+    this.paused = !this.paused
+    this.status = this.paused ? 'Paused' : 'Battle resumed'
+    this.emitHud()
+  }
+
+  restartRun() {
+    this.resetRun()
+    this.emitHud()
   }
 
   private createWorld() {
@@ -378,10 +396,115 @@ export class BattleScene extends Phaser.Scene {
     }
   }
 
-  private firePlayerAttack(damage: number) {
+  private triggerDuelSkill(chord: ChordName, now: number, manual: boolean) {
+    if (!this.canUseSkill(chord, now, manual)) {
+      return
+    }
+
+    if (chord === 'C') {
+      this.basicSlash(now)
+      return
+    }
+    if (chord === 'G') {
+      this.guard()
+      return
+    }
+    if (chord === 'Am') {
+      this.healSkill(now)
+      return
+    }
+    if (chord === 'Em') {
+      this.dodgeSkill(now)
+      return
+    }
+    if (chord === 'F') {
+      this.heavySlash(now)
+      return
+    }
+    if (chord === 'Dm') {
+      this.shieldSkill(now)
+      return
+    }
+
+    this.status = `${chord} is not mapped in Duel yet`
+  }
+
+  private canUseSkill(chord: ChordName, now: number, manual: boolean) {
+    const cooldown = DUEL_SKILL_COOLDOWNS[chord]
+    if (!cooldown) {
+      return true
+    }
+
+    const lastUsed = this.skillCooldowns.get(chord) ?? 0
+    const duration = manual ? cooldown.manual : cooldown.audio
+    if (now - lastUsed < duration) {
+      return false
+    }
+
+    this.skillCooldowns.set(chord, now)
+    return true
+  }
+
+  private basicSlash(now: number) {
+    this.lastAttackAt = now
+    const damage = chords.C.damage + this.combo * 2
+    this.combo += 1
+    this.score += 8
+    this.status = 'C slash launched'
+    this.sounds.attack('C')
+    this.firePlayerAttack('C', damage, 0.34)
+  }
+
+  private healSkill(now: number) {
+    this.lastAttackAt = now
+    const heal = 12 + Math.min(8, Math.floor(this.combo / 3))
+    this.playerHp = Math.min(100, this.playerHp + heal)
+    this.score += 6
+    this.status = `Am recover +${heal} HP`
+    this.sounds.waveClear()
+    this.spawnShield(chords.Am.color, 0.48)
+    this.spawnHitBurst(this.player.x + 16, this.player.y - 92, 0x58d68d, 10)
+  }
+
+  private dodgeSkill(now: number) {
+    this.dodgeUntil = now + 900
+    this.score += 6
+    this.status = 'Em dodge window'
+    this.sounds.guard()
+    this.spawnShield(chords.Em.color, 0.42)
+    this.tweens.add({
+      targets: this.player,
+      x: this.player.x - 34,
+      duration: 120,
+      yoyo: true,
+      ease: 'Quad.out',
+    })
+  }
+
+  private heavySlash(now: number) {
+    this.lastAttackAt = now
+    const damage = chords.F.damage + 18 + this.combo * 2
+    this.combo += 1
+    this.score += 14
+    this.status = 'F heavy flame slash'
+    this.sounds.attack('F')
+    this.cameraShake(0.006)
+    this.firePlayerAttack('F', damage, 0.42)
+    this.spawnHitBurst(this.player.x + 72, this.player.y - 128, chords.F.color, 8)
+  }
+
+  private shieldSkill(now: number) {
+    this.shieldUntil = now + 2200
+    this.score += 5
+    this.status = 'Dm shield active'
+    this.sounds.guard()
+    this.spawnShield(chords.Dm.color, 0.7)
+  }
+
+  private firePlayerAttack(chord: ChordName, damage: number, duration: number) {
     const from = new Phaser.Math.Vector2(this.player.x + 82, this.player.y - 124)
     const to = new Phaser.Math.Vector2(this.enemy.x - 54, this.enemy.y - 112)
-    this.fireProjectile({ chord: ATTACK_CHORD, from, to, target: 'enemy', damage, duration: 0.34 })
+    this.fireProjectile({ chord, from, to, target: 'enemy', damage, duration })
   }
 
   private triggerProgressionChord(chord: ChordName, now: number, manual: boolean) {
@@ -412,6 +535,7 @@ export class BattleScene extends Phaser.Scene {
   }
 
   private rateRhythmHit() {
+    // Progression mode rewards hits that land close to the end of the visible beat meter.
     if (this.rhythmTimer <= PERFECT_RHYTHM_SECONDS) {
       return { rating: 'perfect' as const, label: 'Perfect rhythm', damageBonus: 18, scoreBonus: 34 }
     }
@@ -526,12 +650,7 @@ export class BattleScene extends Phaser.Scene {
     }
   }
 
-  private guard(now: number, manual: boolean) {
-    if (now - this.lastGuardAt < (manual ? 220 : 620)) {
-      return
-    }
-    this.lastGuardAt = now
-
+  private guard() {
     const incoming = this.findNearestIncoming()
     if (!incoming) {
       this.status = 'Guard ready'
@@ -541,6 +660,7 @@ export class BattleScene extends Phaser.Scene {
     }
 
     const timeToImpact = incoming.duration - incoming.life
+    // Guard has a wider block window and a tighter perfect-parry window near impact.
     if (timeToImpact <= PERFECT_WINDOW_SECONDS) {
       this.reflectProjectile(incoming)
       this.combo += 1
@@ -589,9 +709,26 @@ export class BattleScene extends Phaser.Scene {
     this.spawnImpact(projectile.to.x, projectile.to.y, color)
 
     if (projectile.target === 'player') {
-      this.playerHp = Math.max(0, this.playerHp - projectile.damage)
+      const now = performance.now()
+      if (now <= this.dodgeUntil) {
+        this.combo += 1
+        this.score += 18
+        this.status = 'Em dodge avoided damage'
+        this.sounds.guard()
+        this.spawnShield(chords.Em.color, 0.52)
+        return
+      }
+
+      const damage = now <= this.shieldUntil ? Math.ceil(projectile.damage * 0.25) : projectile.damage
+      if (now <= this.shieldUntil) {
+        this.status = `Dm shield reduced -${damage} HP`
+        this.shieldUntil = 0
+        this.spawnShield(chords.Dm.color, 0.58)
+      } else {
+        this.status = `Hit -${damage} HP`
+      }
+      this.playerHp = Math.max(0, this.playerHp - damage)
       this.combo = 0
-      this.status = `Hit -${projectile.damage} HP`
       this.sounds.hit()
       this.cameraShake(0.008)
       this.spawnHitBurst(this.player.x, this.player.y - 72, 0xef5d60, 8)
@@ -689,8 +826,13 @@ export class BattleScene extends Phaser.Scene {
     this.rhythmTimer = this.level.beatSeconds
     this.rhythmRating = 'ready'
     this.gameOver = false
+    this.paused = false
+    this.skillCooldowns.clear()
+    this.lastAttackAt = 0
+    this.dodgeUntil = 0
+    this.shieldUntil = 0
     this.expectedChord = this.mode === 'progression' ? this.level.chords[0] : ATTACK_CHORD
-    this.status = this.mode === 'progression' ? this.level.name : 'C attack / G guard'
+    this.status = this.mode === 'progression' ? this.level.name : 'C attack / G / Am / Em / F / Dm skills'
     this.updateTargetRing()
   }
 
@@ -736,6 +878,7 @@ export class BattleScene extends Phaser.Scene {
       volume: this.volume,
       playerHp: this.playerHp,
       enemyHp: this.enemyState.hp / this.enemyState.maxHp,
+      paused: this.paused,
     })
   }
 }

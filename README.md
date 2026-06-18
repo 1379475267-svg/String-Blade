@@ -4,61 +4,65 @@
 
 ## English
 
-**String Blade** is a browser-based rhythm combat prototype built with Vite,
-TypeScript, Phaser, Web Audio, and Web MIDI. Use chords to launch attacks, guard
-against enemy projectiles, or follow structured guitar chord progressions in a
-rhythm mode.
+**String Blade** is a browser-based guitar chord combat game built with Vite, TypeScript, Phaser, Web Audio API, and Web MIDI. It turns chord input into battle actions: play chords to attack, guard, parry, heal, dodge, shield, or follow rhythm-based chord progressions.
 
 Live demo: [https://stringblade.netlify.app](https://stringblade.netlify.app)
 
+### Preview
+
+Screenshot and GIF placeholders are reserved for the project docs:
+
+- `docs/images/gameplay.png` - Duel mode combat, projectiles, parry timing, and skill effects
+- `docs/images/progression-mode.png` - Progression mode rhythm meter and chord sequence
+- `docs/images/mic-calibration.png` - Microphone calibration controls and chord chart UI
+
 ### Gameplay
 
-String Blade has two game modes:
+String Blade currently has two modes:
 
-- Duel: `C` attacks, `G` guards, and perfect guard timing reflects enemy shots.
-- Progression: follow a chord progression before the timer expires. Correct
-  chords attack the enemy; wrong or missed chords damage the player.
-- Rhythm timing in Progression mode grades hits as Early, Good, or Perfect.
-  Better timing adds damage and score; Perfect timing also restores a little HP.
+- **Duel Mode**: battle an enemy that fires projectiles over time. Use chord skills to attack, defend, and survive.
+- **Progression Mode**: play a given chord progression in rhythm. Correct chords attack the enemy; wrong or missed chords damage the player.
 
-- `C` chord: launch an energy projectile attack.
-- `G` chord: guard against incoming enemy projectiles.
-- Perfect guard timing reflects the enemy projectile and prevents damage.
-- Early guard reduces damage.
-- Enemy projectiles are fired automatically over time.
-- Combo, score, wave, player health, and enemy health update in real time.
-- The first launch shows a quick how-to-play overlay.
-- Best score, best wave, and best combo are saved locally in the browser.
-- Difficulty changes progression speed and damage.
+Current Duel skills:
+
+- `C`: basic slash / energy projectile attack
+- `G`: guard, with perfect parry timing to reflect enemy attacks
+- `Am`: small heal
+- `Em`: dodge window
+- `F`: heavy flame slash
+- `Dm`: temporary shield
+
+Progression mode grades timing as `Early`, `Good`, or `Perfect`. Better timing adds damage and score; perfect timing also restores a little HP.
 
 ### Input Modes
 
-- Manual buttons: use the on-screen chord buttons for C, G, Am, Em, D, Dm, E, A, and F.
-- Microphone: press `Start Mic` and allow browser microphone access.
-- Microphone tuning: use `Cal C`, `Cal G`, and `Cal Am` while holding the chord.
-- MIDI keyboard: press `Start MIDI`; play C major to attack and G major to guard.
-- Guitar charts: follow the on-screen chord diagram for the current target chord.
+- Manual chord buttons for `C`, `G`, `Am`, `Em`, `D`, `Dm`, `E`, `A`, and `F`
+- Microphone chord recognition through the Web Audio API
+- Per-chord microphone calibration for all supported chords
+- Web MIDI input for MIDI keyboards and digital pianos
+- Built-in guitar chord diagrams for supported open chord shapes
 
 ### Features
 
-- Vite + TypeScript project setup
 - Phaser-powered 2D battle scene
-- Web Audio microphone permission and chord detection
-- Web MIDI API support for MIDI keyboards and digital pianos
-- Synthesized Web Audio sound effects
+- Web Audio microphone permission and browser-native chord detection
+- Web MIDI API support
+- Synthesized sound effects with Web Audio
 - Real-time waveform and spectrum visualization
-- C/G/Am chord detection from FFT pitch-class energy
-- Expanded chord pool: C, G, Am, Em, D, Dm, E, A, and F
-- Structured chord progression levels such as C-G-Am-F and G-D-Em-C
-- Built-in SVG guitar chord diagrams for open chord shapes
-- Visual rhythm meter with Good and Perfect timing windows
-- Multi-frame voting to reduce accidental triggers
-- Per-chord microphone calibration profiles
-- Autocorrelation pitch tracking to stabilize pitch-class scoring
-- Projectile attacks, guard timing, perfect parries, and reflected enemy shots
-- First-run onboarding and mobile-friendly controls
+- FFT pitch-class scoring, autocorrelation pitch anchoring, calibration profiles, and multi-frame voting
+- Duel combat with projectiles, guard timing, parry reflection, cooldowns, healing, dodging, shielding, and heavy attacks
+- Progression mode with structured chord loops and visible rhythm timing
 - Local best score, wave, and combo tracking
+- Mobile-friendly layout and first-run onboarding
 - Netlify deployment configuration
+
+### Current Limitations
+
+- Microphone chord recognition is affected by room noise, guitar tone, playing dynamics, tuning, and microphone quality.
+- Browser microphone access usually requires HTTPS or `localhost`.
+- The current chord detector is a lightweight gameplay prototype, not a professional music transcription tool.
+- Calibration is available for all supported chords, but `C`, `G`, and `Am` are currently the best-tested shapes.
+- Mobile browser support for Web Audio and Web MIDI can vary by device and browser.
 
 ### Run Locally
 
@@ -85,69 +89,77 @@ This project is configured for Netlify with `netlify.toml`.
 - Publish directory: `dist`
 - Node version: `22`
 
-### Notes
+### Roadmap
 
-The chord detector is still browser-native and lightweight, but it now combines
-FFT pitch-class energy, autocorrelation pitch tracking, per-chord calibration,
-and multi-frame voting. It is tuned for prototype playability, not studio-grade
-music transcription. Future versions can add richer chord models, sprites, and
-cloud leaderboards.
+- **v0.2**: code structure refactor, richer Duel chord skills, improved calibration controls, pause/restart flow, and documentation polish
+- **v0.3**: fuller level system, character art, stronger skill effects, improved calibration guidance
+- **v1.0**: playable public demo, leaderboard, more music-game systems, and broader chord progression content
+
+### License
+
+String Blade is released under the MIT License. See [LICENSE](LICENSE).
 
 ## 中文
 
-**String Blade** 是一个运行在浏览器里的节奏战斗原型，使用 Vite、
-TypeScript、Phaser、Web Audio 和 Web MIDI 构建。玩家可以通过和弦攻击、
-防御敌人的能量弹，也可以在节奏模式里按照规范和弦走向进行演奏。
+**String Blade** 是一个运行在浏览器里的吉他和弦战斗游戏，使用 Vite、TypeScript、Phaser、Web Audio API 和 Web MIDI 构建。它会把和弦输入转换成战斗动作：弹和弦可以攻击、防御、弹反、回血、闪避、开护盾，也可以按照节奏完成和弦走向。
 
 在线试玩：[https://stringblade.netlify.app](https://stringblade.netlify.app)
 
+### 项目预览
+
+项目文档预留了以下截图或 GIF 占位：
+
+- `docs/images/gameplay.png` - Duel 模式战斗、能量弹、弹反时机和技能效果
+- `docs/images/progression-mode.png` - Progression 模式节奏条和和弦走向
+- `docs/images/mic-calibration.png` - 麦克风校准控件和吉他和弦图界面
+
 ### 玩法
 
-String Blade 有两个游戏模式：
+String Blade 当前有两个模式：
 
-- Duel：`C` 攻击，`G` 防御，完美防御可以弹反敌人的攻击。
-- Progression：按照给定和弦走向在倒计时结束前演奏。弹对会攻击敌人，弹错或漏弹会受到伤害。
-- Progression 模式会根据节奏判定 Early、Good、Perfect。时机越准，伤害和分数越高；
-  Perfect 还会少量回血。
+- **Duel 模式**：与会自动发射能量弹的敌人对战。玩家通过和弦技能攻击、防御并存活。
+- **Progression 模式**：按照给定和弦走向和节奏演奏。弹对会攻击敌人，弹错或漏弹会受到伤害。
 
-- `C` 和弦：发射自己的能量弹攻击敌人。
-- `G` 和弦：防御敌人发来的能量弹。
-- 时机恰当的防御会触发完美弹反，不掉血并把攻击反弹回去。
-- 较早的防御可以减少受到的伤害。
-- 敌人会随时间自动发射攻击弹。
-- 连击、分数、波次、玩家血量和敌人血量都会实时变化。
-- 第一次打开会显示快速玩法引导。
-- 最高分、最高波次和最高连击会保存在本地浏览器中。
-- 难度会影响和弦切换速度和受到的伤害。
+当前 Duel 技能：
+
+- `C`：基础斩击 / 能量弹攻击
+- `G`：防御，时机准确时可以完美弹反敌方攻击
+- `Am`：小幅回血
+- `Em`：闪避窗口
+- `F`：重击 / 火焰斩
+- `Dm`：临时护盾
+
+Progression 模式会根据节奏判定 `Early`、`Good`、`Perfect`。时机越准，伤害和分数越高；Perfect 还会少量回血。
 
 ### 输入方式
 
-- 手动按钮：使用界面上的 C、G、Am、Em、D、Dm、E、A、F 和弦按钮。
-- 麦克风：点击 `Start Mic` 并授权浏览器麦克风权限。
-- 麦克风校准：按住对应和弦时点击 `Cal C`、`Cal G`、`Cal Am`。
-- MIDI 键盘：点击 `Start MIDI`；弹 C 大三和弦攻击，弹 G 大三和弦防御。
-- 吉他和弦图：根据屏幕上的当前目标和弦图进行演奏。
+- `C`、`G`、`Am`、`Em`、`D`、`Dm`、`E`、`A`、`F` 手动和弦按钮
+- 通过 Web Audio API 进行麦克风和弦识别
+- 为所有支持和弦提供逐和弦麦克风校准
+- 支持 MIDI 键盘和电子琴的 Web MIDI 输入
+- 内置支持和弦的吉他开放和弦图
 
 ### 功能
 
-- Vite + TypeScript 项目结构
 - Phaser 驱动的 2D 战斗场景
-- Web Audio 麦克风权限与和弦检测
-- Web MIDI API 支持 MIDI 键盘和电子琴
+- Web Audio 麦克风权限与浏览器原生和弦检测
+- Web MIDI API 支持
 - Web Audio 合成战斗音效
 - 实时波形和频谱显示
-- 基于 FFT 音级能量的 C/G/Am 和弦检测
-- 扩展和弦池：C、G、Am、Em、D、Dm、E、A、F
-- 内置规范和弦走向关卡，例如 C-G-Am-F 和 G-D-Em-C
-- 内置 SVG 吉他开放和弦指法图
-- 可视化节奏条，显示 Good 和 Perfect 判定窗口
-- 多帧投票，减少误触发
-- 每个和弦的麦克风校准配置
-- 自相关音高追踪，稳定音级评分
-- 能量弹攻击、防御时机、完美弹反、敌方攻击反射
-- 首次进入引导和移动端友好的控制布局
-- 本地最高分、最高波次和最高连击记录
+- FFT 音级评分、自相关音高锚定、校准配置和多帧投票
+- Duel 战斗：能量弹、防御时机、弹反反射、技能冷却、回血、闪避、护盾和重击
+- Progression 模式：规范和弦走向和可视化节奏判定
+- 本地保存最高分、最高波次和最高连击
+- 移动端友好布局和首次进入引导
 - Netlify 部署配置
+
+### 当前限制
+
+- 麦克风和弦识别会受到环境噪声、吉他音色、弹奏力度、调音状态和麦克风质量影响。
+- 浏览器麦克风权限通常需要 HTTPS 或 `localhost` 环境。
+- 当前和弦识别是轻量级游戏原型，不是专业级音乐转录工具。
+- 校准功能已经支持所有和弦，但目前 `C`、`G`、`Am` 是测试最充分的形状。
+- 移动端浏览器对 Web Audio / Web MIDI 的支持可能因设备和浏览器而不同。
 
 ### 本地运行
 
@@ -174,8 +186,12 @@ npm run build
 - 发布目录：`dist`
 - Node 版本：`22`
 
-### 说明
+### 后续计划
 
-当前和弦检测器仍然是轻量级、浏览器原生的实现，但已经结合了 FFT 音级能量、
-自相关音高追踪、逐和弦校准和多帧投票。目标是提升原型可玩性，而不是专业级音乐转录。
-后续可以继续加入更丰富的和弦模型、角色素材和云端排行榜。
+- **v0.2**：代码结构重构、更多 Duel 和弦技能、校准控件优化、暂停/重开流程、文档完善
+- **v0.3**：更完整的关卡系统、角色素材、更强的技能特效、更清晰的校准引导
+- **v1.0**：可玩的正式公开 Demo、排行榜、更多音乐玩法和更丰富的和弦走向内容
+
+### 许可证
+
+String Blade 使用 MIT License 开源。详见 [LICENSE](LICENSE)。
