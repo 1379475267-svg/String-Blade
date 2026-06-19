@@ -30,15 +30,21 @@ export const chords: Record<ChordName, { notes: number[]; color: number; cssColo
   F: { notes: [5, 9, 0], color: 0xffd166, cssColor: '#ffd166', damage: 25 },
 }
 
+const PITCH_DETECTION_INTERVAL_MS = 50
+
 export class AudioChordDetector {
   private context: AudioContext | null = null
   private analyser: AnalyserNode | null = null
+  private source: MediaStreamAudioSourceNode | null = null
   private frequencyData = new Uint8Array(1024)
   private timeData = new Uint8Array(1024)
+  private pitchSamples = new Float32Array(1024)
   private stream: MediaStream | null = null
   private readonly voteHistory: Array<{ chord: ChordName | null; confidence: number }> = []
   private readonly calibrationProfiles = new Map<ChordName, number[]>()
   private calibration: { chord: ChordName; samples: number[][]; targetSamples: number } | null = null
+  private lastPitchDetectionAt = 0
+  private lastPitchClass: number | null = null
 
   state: MicState = 'idle'
   message = 'Mic off'
@@ -49,10 +55,15 @@ export class AudioChordDetector {
   }
 
   async start() {
+    if (this.state === 'ready' || this.state === 'asking') {
+      return
+    }
+
     this.state = 'asking'
     this.message = 'Requesting mic'
 
     try {
+      await this.stop()
       this.stream = await navigator.mediaDevices.getUserMedia({
         audio: {
           echoCancellation: false,
@@ -62,19 +73,40 @@ export class AudioChordDetector {
       })
 
       this.context = new AudioContext()
-      const source = this.context.createMediaStreamSource(this.stream)
+      this.source = this.context.createMediaStreamSource(this.stream)
       this.analyser = this.context.createAnalyser()
       this.analyser.fftSize = 2048
       this.analyser.smoothingTimeConstant = 0.74
       this.frequencyData = new Uint8Array(this.analyser.frequencyBinCount)
       this.timeData = new Uint8Array(this.analyser.fftSize)
-      source.connect(this.analyser)
+      this.pitchSamples = new Float32Array(this.timeData.length)
+      this.source.connect(this.analyser)
       this.state = 'ready'
       this.message = 'Mic live'
     } catch {
       this.state = 'denied'
       this.message = 'Mic blocked'
     }
+  }
+
+  async stop() {
+    this.source?.disconnect()
+    this.analyser?.disconnect()
+    this.stream?.getTracks().forEach((track) => track.stop())
+
+    if (this.context && this.context.state !== 'closed') {
+      await this.context.close()
+    }
+
+    this.source = null
+    this.analyser = null
+    this.stream = null
+    this.context = null
+    this.voteHistory.length = 0
+    this.lastPitchDetectionAt = 0
+    this.lastPitchClass = null
+    this.state = 'idle'
+    this.message = 'Mic off'
   }
 
   read(): Detection {
@@ -107,7 +139,7 @@ export class AudioChordDetector {
       pitchEnergy[pitchClass] += energy * energy
     }
 
-    const trackedPitch = this.detectPitchClass()
+    const trackedPitch = this.detectPitchClass(performance.now())
     if (trackedPitch !== null) {
       pitchEnergy[trackedPitch] += pitchEnergy.reduce((sum, value) => sum + value, 0) * 0.12
     }
@@ -260,12 +292,17 @@ export class AudioChordDetector {
     return dot / Math.sqrt(aMagnitude * bMagnitude)
   }
 
-  private detectPitchClass() {
+  private detectPitchClass(now: number) {
     if (!this.context) {
       return null
     }
 
-    const samples = new Float32Array(this.timeData.length)
+    if (now - this.lastPitchDetectionAt < PITCH_DETECTION_INTERVAL_MS) {
+      return this.lastPitchClass
+    }
+
+    this.lastPitchDetectionAt = now
+    const samples = this.pitchSamples
     for (let i = 0; i < this.timeData.length; i += 1) {
       samples[i] = (this.timeData[i] - 128) / 128
     }
@@ -290,16 +327,19 @@ export class AudioChordDetector {
     }
 
     if (bestLag <= 0 || bestCorrelation < 0.012) {
+      this.lastPitchClass = null
       return null
     }
 
     const frequency = sampleRate / bestLag
     if (frequency < 75 || frequency > 1000) {
+      this.lastPitchClass = null
       return null
     }
 
     const midi = Math.round(69 + 12 * Math.log2(frequency / 440))
-    return ((midi % 12) + 12) % 12
+    this.lastPitchClass = ((midi % 12) + 12) % 12
+    return this.lastPitchClass
   }
 
   private getVolume() {

@@ -103,6 +103,7 @@ export class BattleScene extends Phaser.Scene {
   private readonly skillCooldowns = new Map<ChordName, number>()
   private dodgeUntil = 0
   private shieldUntil = 0
+  private readonly handleResize = () => this.layout()
 
   constructor(config: BattleSceneConfig) {
     super('BattleScene')
@@ -117,7 +118,10 @@ export class BattleScene extends Phaser.Scene {
     this.enemyHealth = this.add.graphics()
     this.audioRibbon = this.add.graphics()
     this.targetRing = this.createTargetRing()
-    this.scale.on('resize', () => this.layout())
+    this.scale.on('resize', this.handleResize)
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
+      this.scale.off('resize', this.handleResize)
+    })
     this.layout()
     this.emitHud()
   }
@@ -687,9 +691,22 @@ export class BattleScene extends Phaser.Scene {
   }
 
   private findNearestIncoming() {
-    return this.projectiles
-      .filter((projectile) => projectile.target === 'player')
-      .sort((a, b) => a.duration - a.life - (b.duration - b.life))[0]
+    let nearest: Projectile | undefined
+    let nearestTimeToImpact = Number.POSITIVE_INFINITY
+
+    for (const projectile of this.projectiles) {
+      if (projectile.target !== 'player') {
+        continue
+      }
+
+      const timeToImpact = projectile.duration - projectile.life
+      if (timeToImpact < nearestTimeToImpact) {
+        nearest = projectile
+        nearestTimeToImpact = timeToImpact
+      }
+    }
+
+    return nearest
   }
 
   private reflectProjectile(projectile: Projectile) {

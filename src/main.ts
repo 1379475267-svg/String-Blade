@@ -1,4 +1,3 @@
 import './style.css'
-import { bootstrap } from './app/bootstrap'
 
-bootstrap()
+void import('./app/bootstrap').then(({ bootstrap }) => bootstrap())

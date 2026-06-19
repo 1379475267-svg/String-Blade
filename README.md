@@ -56,6 +56,14 @@ Progression mode grades timing as `Early`, `Good`, or `Perfect`. Better timing a
 - Mobile-friendly layout and first-run onboarding
 - Netlify deployment configuration
 
+### Performance and Maintenance
+
+- The application entry dynamically loads the game bootstrap so the initial entry chunk stays small.
+- HUD updates skip unchanged DOM writes, and chord charts/progression steps only redraw when their state changes.
+- Microphone startup is idempotent, microphone streams can be stopped cleanly, and page teardown releases audio and Phaser resources.
+- Pitch anchoring reuses its sample buffer and runs on a lighter cadence while waveform and spectrum rendering continue in real time.
+- TypeScript checks are available through `npm run typecheck`.
+
 ### Current Limitations
 
 - Microphone chord recognition is affected by room noise, guitar tone, playing dynamics, tuning, and microphone quality.
@@ -63,6 +71,7 @@ Progression mode grades timing as `Early`, `Good`, or `Perfect`. Better timing a
 - The current chord detector is a lightweight gameplay prototype, not a professional music transcription tool.
 - Calibration is available for all supported chords, but `C`, `G`, and `Am` are currently the best-tested shapes.
 - Mobile browser support for Web Audio and Web MIDI can vary by device and browser.
+- Phaser keeps the game bootstrap chunk relatively large even after the entry chunk is split.
 
 ### Run Locally
 
@@ -72,6 +81,12 @@ npm run dev
 ```
 
 Open the local Vite URL shown in your terminal.
+
+### Type Check
+
+```bash
+npm run typecheck
+```
 
 ### Build
 
@@ -91,7 +106,7 @@ This project is configured for Netlify with `netlify.toml`.
 
 ### Roadmap
 
-- **v0.2**: code structure refactor, richer Duel chord skills, improved calibration controls, pause/restart flow, and documentation polish
+- **v0.2**: richer Duel chord skills, improved calibration controls, pause/restart flow, and documentation polish
 - **v0.3**: fuller level system, character art, stronger skill effects, improved calibration guidance
 - **v1.0**: playable public demo, leaderboard, more music-game systems, and broader chord progression content
 
@@ -115,7 +130,7 @@ String Blade is released under the MIT License. See [LICENSE](LICENSE).
 
 ### 玩法
 
-String Blade 当前有两个模式：
+String Blade 当前有两种模式：
 
 - **Duel 模式**：与会自动发射能量弹的敌人对战。玩家通过和弦技能攻击、防御并存活。
 - **Progression 模式**：按照给定和弦走向和节奏演奏。弹对会攻击敌人，弹错或漏弹会受到伤害。
@@ -135,7 +150,7 @@ Progression 模式会根据节奏判定 `Early`、`Good`、`Perfect`。时机越
 
 - `C`、`G`、`Am`、`Em`、`D`、`Dm`、`E`、`A`、`F` 手动和弦按钮
 - 通过 Web Audio API 进行麦克风和弦识别
-- 为所有支持和弦提供逐和弦麦克风校准
+- 为所有支持的和弦提供逐和弦麦克风校准
 - 支持 MIDI 键盘和电子琴的 Web MIDI 输入
 - 内置支持和弦的吉他开放和弦图
 
@@ -148,10 +163,18 @@ Progression 模式会根据节奏判定 `Early`、`Good`、`Perfect`。时机越
 - 实时波形和频谱显示
 - FFT 音级评分、自相关音高锚定、校准配置和多帧投票
 - Duel 战斗：能量弹、防御时机、弹反反射、技能冷却、回血、闪避、护盾和重击
-- Progression 模式：规范和弦走向和可视化节奏判定
+- Progression 模式：结构化和弦走向和可视化节奏判定
 - 本地保存最高分、最高波次和最高连击
 - 移动端友好布局和首次进入引导
 - Netlify 部署配置
+
+### 性能与维护
+
+- 应用入口会动态加载游戏启动逻辑，让初始入口 chunk 保持较小。
+- HUD 更新会跳过未变化的 DOM 写入，和弦图与和弦走向只在状态变化时重绘。
+- 麦克风启动是幂等的，音频流可以被干净停止，页面卸载时会释放音频和 Phaser 资源。
+- 音高锚定复用采样 buffer，并以更轻的频率运行；波形和频谱仍保持实时显示。
+- 可通过 `npm run typecheck` 单独执行 TypeScript 类型检查。
 
 ### 当前限制
 
@@ -160,6 +183,7 @@ Progression 模式会根据节奏判定 `Early`、`Good`、`Perfect`。时机越
 - 当前和弦识别是轻量级游戏原型，不是专业级音乐转录工具。
 - 校准功能已经支持所有和弦，但目前 `C`、`G`、`Am` 是测试最充分的形状。
 - 移动端浏览器对 Web Audio / Web MIDI 的支持可能因设备和浏览器而不同。
+- 即使拆分入口 chunk，Phaser 仍会让游戏启动 chunk 相对较大。
 
 ### 本地运行
 
@@ -169,6 +193,12 @@ npm run dev
 ```
 
 然后打开终端中显示的 Vite 本地地址。
+
+### 类型检查
+
+```bash
+npm run typecheck
+```
 
 ### 构建
 
@@ -188,7 +218,7 @@ npm run build
 
 ### 后续计划
 
-- **v0.2**：代码结构重构、更多 Duel 和弦技能、校准控件优化、暂停/重开流程、文档完善
+- **v0.2**：更丰富的 Duel 和弦技能、校准控件优化、暂停/重开流程、文档完善
 - **v0.3**：更完整的关卡系统、角色素材、更强的技能特效、更清晰的校准引导
 - **v1.0**：可玩的正式公开 Demo、排行榜、更多音乐玩法和更丰富的和弦走向内容
 

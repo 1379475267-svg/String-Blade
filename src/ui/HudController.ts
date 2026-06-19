@@ -53,6 +53,10 @@ export class HudController {
   private readonly elements: HudElements
   private readonly chartRenderer: ChordChartRenderer
   private bestStats: BestStats
+  private readonly textCache = new WeakMap<HTMLElement, string>()
+  private readonly dataCache = new WeakMap<HTMLElement, string>()
+  private lastProgressionKey = ''
+  private lastChartChord: ChordName = 'C'
 
   constructor() {
     const chordButtons = {} as Record<ChordName, HTMLElement>
@@ -98,41 +102,46 @@ export class HudController {
   update(state: BattleHudState, inputState: InputHudState) {
     this.updateBestStats(state)
 
-    this.elements.score.textContent = String(state.score)
-    this.elements.combo.textContent = `${state.combo}x`
-    this.elements.wave.textContent = String(state.wave)
-    this.elements.mode.textContent = state.mode === 'duel' ? 'Duel' : 'Progression'
-    this.elements.level.textContent = state.mode === 'duel' ? 'Duel Mode' : state.levelName || 'Progression'
-    this.elements.progression.innerHTML = (state.mode === 'progression' ? state.progression : [])
-      .map((chord, index) => `<span class="${index === state.progressionIndex ? 'is-current' : ''}">${chord}</span>`)
-      .join('')
+    this.setText(this.elements.score, String(state.score))
+    this.setText(this.elements.combo, `${state.combo}x`)
+    this.setText(this.elements.wave, String(state.wave))
+    this.setText(this.elements.mode, state.mode === 'duel' ? 'Duel' : 'Progression')
+    this.setText(this.elements.level, state.mode === 'duel' ? 'Duel Mode' : state.levelName || 'Progression')
+
+    const progressionKey =
+      state.mode === 'progression' ? `${state.progression.join('|')}:${state.progressionIndex}` : 'duel'
+    if (progressionKey !== this.lastProgressionKey) {
+      this.elements.progression.innerHTML = (state.mode === 'progression' ? state.progression : [])
+        .map((chord, index) => `<span class="${index === state.progressionIndex ? 'is-current' : ''}">${chord}</span>`)
+        .join('')
+      this.lastProgressionKey = progressionKey
+    }
 
     const rhythmPercent =
       state.mode === 'progression'
         ? Math.max(0, Math.min(100, (state.rhythmTimeLeft / Math.max(0.1, state.rhythmBeatSeconds || 1)) * 100))
         : 100
     this.elements.rhythm.style.width = `${rhythmPercent}%`
-    this.elements.rhythmMeter.dataset.rating = state.rhythmRating
-    this.elements.rhythmRating.textContent =
-      state.mode === 'progression' ? state.rhythmRating.toUpperCase() : 'Duel timing'
+    this.setData(this.elements.rhythmMeter, 'rating', state.rhythmRating)
+    this.setText(this.elements.rhythmRating, state.mode === 'progression' ? state.rhythmRating.toUpperCase() : 'Duel timing')
 
-    this.elements.shell.dataset.paused = String(state.paused)
-    this.elements.pauseButton.textContent = state.paused ? 'Resume' : 'Pause'
+    this.setData(this.elements.shell, 'paused', String(state.paused))
+    this.setText(this.elements.pauseButton, state.paused ? 'Resume' : 'Pause')
     this.elements.pauseButton.classList.toggle('is-paused', state.paused)
-    this.elements.pauseState.textContent = state.paused ? 'Paused' : 'Live'
-    this.elements.pauseState.dataset.state = state.paused ? 'paused' : 'live'
+    this.setText(this.elements.pauseState, state.paused ? 'Paused' : 'Live')
+    this.setData(this.elements.pauseState, 'state', state.paused ? 'paused' : 'live')
 
-    this.elements.target.textContent = state.target
-    this.elements.defense.textContent = state.mode === 'duel' ? state.defense : '-'
-    this.elements.status.textContent = state.status
-    this.elements.detected.textContent = state.detected ?? '-'
-    this.elements.confidence.textContent = `${Math.round(state.confidence * 100)}%`
-    this.elements.volume.textContent = `${Math.round(state.volume * 100)}%`
-    this.elements.mic.textContent = inputState.micMessage
-    this.elements.mic.dataset.state = inputState.micState
-    this.elements.midi.textContent = inputState.midiMessage
-    this.elements.midi.dataset.state = inputState.midiState
-    this.elements.calibration.textContent = inputState.calibrationMessage
+    this.setText(this.elements.target, state.target)
+    this.setText(this.elements.defense, state.mode === 'duel' ? state.defense : '-')
+    this.setText(this.elements.status, state.status)
+    this.setText(this.elements.detected, state.detected ?? '-')
+    this.setText(this.elements.confidence, `${Math.round(state.confidence * 100)}%`)
+    this.setText(this.elements.volume, `${Math.round(state.volume * 100)}%`)
+    this.setText(this.elements.mic, inputState.micMessage)
+    this.setData(this.elements.mic, 'state', inputState.micState)
+    this.setText(this.elements.midi, inputState.midiMessage)
+    this.setData(this.elements.midi, 'state', inputState.midiState)
+    this.setText(this.elements.calibration, inputState.calibrationMessage)
 
     for (const chord of chordOrder) {
       this.elements.chordButtons[chord].classList.toggle('is-target', chord === state.target)
@@ -140,7 +149,10 @@ export class HudController {
       this.elements.chordButtons[chord].classList.toggle('is-detected', chord === state.detected)
     }
 
-    this.chartRenderer.render(state.target)
+    if (state.target !== this.lastChartChord) {
+      this.chartRenderer.render(state.target)
+      this.lastChartChord = state.target
+    }
   }
 
   private updateBestStats(state: BattleHudState) {
@@ -161,8 +173,27 @@ export class HudController {
   }
 
   private writeBestStats() {
-    this.elements.bestScore.textContent = String(this.bestStats.score)
-    this.elements.bestWave.textContent = String(this.bestStats.wave)
-    this.elements.bestCombo.textContent = `${this.bestStats.combo}x`
+    this.setText(this.elements.bestScore, String(this.bestStats.score))
+    this.setText(this.elements.bestWave, String(this.bestStats.wave))
+    this.setText(this.elements.bestCombo, `${this.bestStats.combo}x`)
+  }
+
+  private setText(element: HTMLElement, value: string) {
+    if (this.textCache.get(element) === value) {
+      return
+    }
+
+    element.textContent = value
+    this.textCache.set(element, value)
+  }
+
+  private setData(element: HTMLElement, key: string, value: string) {
+    const cacheKey = `${key}:${value}`
+    if (this.dataCache.get(element) === cacheKey) {
+      return
+    }
+
+    element.dataset[key] = value
+    this.dataCache.set(element, cacheKey)
   }
 }

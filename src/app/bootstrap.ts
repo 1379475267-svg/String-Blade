@@ -59,7 +59,26 @@ export const bootstrap = () => {
   })
 
   bindControls(detector, midiInput, () => battleScene)
-  syncAudioToScene(detector, () => battleScene)
+  const stopAudioSync = syncAudioToScene(detector, () => battleScene)
+  let cleanedUp = false
+  const cleanup = () => {
+    if (cleanedUp) {
+      return
+    }
+
+    cleanedUp = true
+    stopAudioSync()
+    void detector.stop()
+    phaserGame.destroy(true)
+  }
+  const handlePageHide = (event: PageTransitionEvent) => {
+    if (!event.persisted) {
+      cleanup()
+    }
+  }
+
+  window.addEventListener('pagehide', handlePageHide, { once: true })
+  return cleanup
 }
 
 const bindControls = (
@@ -130,7 +149,13 @@ const bindOnboarding = () => {
 
 const syncAudioToScene = (detector: AudioChordDetector, getBattleScene: () => BattleScene | null) => {
   // Audio frames are polled from the browser and pushed into Phaser once per animation frame.
+  let animationFrameId = 0
+  let stopped = false
   const sync = () => {
+    if (stopped) {
+      return
+    }
+
     const detection = detector.read()
     const battleScene = getBattleScene()
     battleScene?.setAudioData({
@@ -145,8 +170,12 @@ const syncAudioToScene = (detector: AudioChordDetector, getBattleScene: () => Ba
       battleScene?.triggerChord(detection.chord as ChordName, false)
     }
 
-    requestAnimationFrame(sync)
+    animationFrameId = requestAnimationFrame(sync)
   }
 
   sync()
+  return () => {
+    stopped = true
+    cancelAnimationFrame(animationFrameId)
+  }
 }
